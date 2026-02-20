@@ -4,8 +4,8 @@ set -euo pipefail
 # === CONFIG ===
 CONFIG_FILE="$HOME/.zen_sync_config.json"
 SQLITE_FILES=("places.sqlite" "favicons.sqlite")
-PLAIN_FILES=("sessionstore.jsonlz4")
-BACKUP_DIRS=("sessionstore-backups" "bookmarkbackups")
+PLAIN_FILES=("sessionstore.jsonlz4" "zen-sessions.jsonlz4" "zen-themes.json" "zen-keyboard-shortcuts.json")
+BACKUP_DIRS=("sessionstore-backups" "bookmarkbackups" "zen-sessions-backup")
 
 # === CONFIGURATION MANAGEMENT ===
 get_config() {
