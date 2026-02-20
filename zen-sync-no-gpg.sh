@@ -3,9 +3,9 @@ set -euo pipefail
 
 # === CONFIG ===
 CONFIG_FILE="$HOME/.zen_sync_config.json"
-FILES=("places.sqlite" "places.sqlite-wal" "sessionstore.jsonlz4")
-SESSION_DIR="sessionstore-backups"
-SESSIONSTORE_BACKUPS_DIR="sessionstore-backups"
+SQLITE_FILES=("places.sqlite" "favicons.sqlite")
+PLAIN_FILES=("sessionstore.jsonlz4")
+BACKUP_DIRS=("sessionstore-backups" "bookmarkbackups")
 
 # === CONFIGURATION MANAGEMENT ===
 get_config() {
@@ -199,6 +199,35 @@ test_prerequisites() {
         echo "tar not found. Please install tar"
         exit 1
     fi
+
+    if ! command -v sqlite3 &> /dev/null; then
+        echo "sqlite3 not found. Please install sqlite3"
+        echo "  Linux: sudo apt install sqlite3 / nix-env -iA nixpkgs.sqlite"
+        echo "  macOS: brew install sqlite3"
+        exit 1
+    fi
+}
+
+# Safely backup a SQLite database by using sqlite3's .backup command.
+# This properly handles WAL mode by merging all WAL data into a single
+# self-contained database file, even while the browser is running.
+backup_sqlite() {
+    local src="$1"
+    local dst="$2"
+
+    if [[ ! -f "$src" ]]; then
+        echo "SQLite file not found: $src"
+        return 1
+    fi
+
+    echo "Backing up SQLite database: $(basename "$src")..."
+    # sqlite3 .backup creates a consistent snapshot even if the DB is in use
+    sqlite3 "$src" ".backup '$dst'"
+
+    if [[ $? -ne 0 ]]; then
+        echo "Warning: sqlite3 .backup failed for $(basename "$src"), falling back to file copy"
+        cp "$src" "$dst"
+    fi
 }
 
 # === BACKUP FUNCTION ===
@@ -250,8 +279,21 @@ invoke_backup() {
 
     changed=false
 
-    # Backup individual files
-    for file in "${FILES[@]}"; do
+    # Backup SQLite databases using sqlite3 .backup for consistency
+    for file in "${SQLITE_FILES[@]}"; do
+        src="$full_path/$file"
+        dst="$repo_dir/$file"
+
+        if [[ -f "$src" ]]; then
+            backup_sqlite "$src" "$dst"
+            changed=true
+        else
+            echo "File not found: $file (skipping)"
+        fi
+    done
+
+    # Backup plain (non-SQLite) files
+    for file in "${PLAIN_FILES[@]}"; do
         src="$full_path/$file"
         dst="$repo_dir/$file"
 
@@ -260,12 +302,12 @@ invoke_backup() {
             cp "$src" "$dst"
             changed=true
         else
-            echo "File not found: $file"
+            echo "File not found: $file (skipping)"
         fi
     done
 
     # Backup folders
-    for folder in "$SESSION_DIR" "$SESSIONSTORE_BACKUPS_DIR"; do
+    for folder in "${BACKUP_DIRS[@]}"; do
         src_folder="$full_path/$folder"
         tar_file="$repo_dir/$folder.tar.gz"
 
@@ -274,7 +316,7 @@ invoke_backup() {
             tar -czf "$tar_file" -C "$full_path" "$folder"
             changed=true
         else
-            echo "Folder not found: $folder"
+            echo "Folder not found: $folder (skipping)"
         fi
     done
 
@@ -329,8 +371,31 @@ invoke_restore() {
 
     cd "$repo_dir"
 
-    # Restore individual files
-    for file in "${FILES[@]}"; do
+    # Restore SQLite databases
+    for file in "${SQLITE_FILES[@]}"; do
+        src="$repo_dir/$file"
+        dst="$full_path/$file"
+
+        if [[ -f "$src" ]]; then
+            echo "Restoring $file..."
+
+            # Backup existing file and associated WAL/SHM files
+            for ext in "" "-wal" "-shm"; do
+                if [[ -f "$dst$ext" ]]; then
+                    bak_file="$dst$ext.bak"
+                    echo "Backing up existing $(basename "$dst$ext") to $(basename "$bak_file")"
+                    mv "$dst$ext" "$bak_file"
+                fi
+            done
+
+            cp "$src" "$dst"
+        else
+            echo "Backup not found: $file"
+        fi
+    done
+
+    # Restore plain (non-SQLite) files
+    for file in "${PLAIN_FILES[@]}"; do
         src="$repo_dir/$file"
         dst="$full_path/$file"
 
@@ -351,7 +416,7 @@ invoke_restore() {
     done
 
     # Restore folders
-    for folder in "$SESSION_DIR" "$SESSIONSTORE_BACKUPS_DIR"; do
+    for folder in "${BACKUP_DIRS[@]}"; do
         src="$repo_dir/$folder.tar.gz"
         dst_folder="$full_path/$folder"
 
@@ -392,6 +457,7 @@ if [[ $# -eq 0 ]]; then
     echo "Prerequisites:"
     echo "  1. Have a Git repository ready for backups"
     echo "  2. Install jq: sudo apt install jq (Linux) or brew install jq (macOS)"
+    echo "  3. Install sqlite3: sudo apt install sqlite3 (Linux) or brew install sqlite3 (macOS)"
     exit 1
 fi
 
