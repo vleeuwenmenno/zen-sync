@@ -229,8 +229,8 @@ backup_sqlite() {
         echo "Warning: sqlite3 .backup failed for $(basename "$src"), falling back to file copy"
         cp "$src" "$dst"
         # Also copy WAL/SHM if they exist, since we're doing a raw copy
-        [[ -f "$src-wal" ]] && cp "$src-wal" "$dst-wal"
-        [[ -f "$src-shm" ]] && cp "$src-shm" "$dst-shm"
+        if [[ -f "$src-wal" ]]; then cp "$src-wal" "$dst-wal"; fi
+        if [[ -f "$src-shm" ]]; then cp "$src-shm" "$dst-shm"; fi
     fi
 }
 
