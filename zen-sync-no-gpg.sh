@@ -221,8 +221,8 @@ backup_sqlite() {
 
     echo "Backing up SQLite database: $(basename "$src")..."
     # sqlite3 .backup creates a consistent snapshot even if the DB is in use
-    # Use || to prevent set -e from killing the script before fallback runs
-    if sqlite3 "$src" ".backup '$dst'" 2>&1; then
+    # Open source DB as read-only URI to avoid needing write access to the source directory
+    if sqlite3 "file:$src?mode=ro" ".backup '$dst'" 2>&1; then
         echo "  SQLite backup successful"
     else
         echo "Warning: sqlite3 .backup failed for $(basename "$src"), falling back to file copy"
