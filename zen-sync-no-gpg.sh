@@ -69,7 +69,7 @@ get_zen_profile_paths() {
     # Check for regular Zen Browser profiles
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         # Linux - check standard and flatpak paths
-        zen_bases=("$HOME/.zen" "$HOME/.var/app/app.zen_browser.zen/.zen")
+        zen_bases=("$HOME/.config/zen" "$HOME/.var/app/app.zen_browser.zen/.zen")
 
         for zen_base in "${zen_bases[@]}"; do
             ini_path="$zen_base/profiles.ini"
@@ -130,7 +130,7 @@ get_zen_profile_paths() {
         fi
     else
         # Check for Twilight Zen Browser profiles on Linux/macOS
-        twilight_profiles_path="$HOME/.zen/profiles"
+        twilight_profiles_path="$HOME/.config/zen/profiles"
         if [[ -d "$twilight_profiles_path" ]]; then
             for dir in "$twilight_profiles_path"/*; do
                 if [[ -d "$dir" ]]; then
