@@ -222,11 +222,15 @@ backup_sqlite() {
 
     echo "Backing up SQLite database: $(basename "$src")..."
     # sqlite3 .backup creates a consistent snapshot even if the DB is in use
-    sqlite3 "$src" ".backup '$dst'"
-
-    if [[ $? -ne 0 ]]; then
+    # Use || to prevent set -e from killing the script before fallback runs
+    if sqlite3 "$src" ".backup '$dst'" 2>&1; then
+        echo "  SQLite backup successful"
+    else
         echo "Warning: sqlite3 .backup failed for $(basename "$src"), falling back to file copy"
         cp "$src" "$dst"
+        # Also copy WAL/SHM if they exist, since we're doing a raw copy
+        [[ -f "$src-wal" ]] && cp "$src-wal" "$dst-wal"
+        [[ -f "$src-shm" ]] && cp "$src-shm" "$dst-shm"
     fi
 }
 
