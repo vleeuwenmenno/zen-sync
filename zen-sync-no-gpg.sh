@@ -87,7 +87,6 @@ get_zen_profile_paths() {
                         current_path=""
                     }
                 ' zen_base="$zen_base" "$ini_path")
-                break
             fi
         done
     elif [[ "$OSTYPE" == "darwin"* ]]; then
